@@ -11,14 +11,16 @@ public class AlarmMessage implements Serializable {
     private static final long serialVersionUID = 6110474591366995515L;
     private String            message;
     private String            receiveKey;
+    private Long            pipelineId;
 
     public AlarmMessage(){
 
     }
 
-    public AlarmMessage(String message, String receiveKey){
+    public AlarmMessage(String message, String receiveKey, Long pipelineId){
         this.message = message;
         this.receiveKey = receiveKey;
+        this.pipelineId = pipelineId;
     }
 
     public String getMessage() {
@@ -42,4 +44,11 @@ public class AlarmMessage implements Serializable {
         return ToStringBuilder.reflectionToString(this, OtterToStringStyle.DEFAULT_STYLE);
     }
 
+    public Long getPipelineId() {
+        return pipelineId;
+    }
+
+    public void setPipelineId(Long pipelineId) {
+        this.pipelineId = pipelineId;
+    }
 }

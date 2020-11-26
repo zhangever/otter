@@ -46,7 +46,7 @@ public abstract class AbstractRuleMonitor implements Monitor, PassiveMonitor {
 
     protected static final Logger log = LoggerFactory.getLogger("monitorInfo");
 
-    @Resource(name = "alarmService")
+    @Resource(name = "dingTalkAlarmService")
     private AbstractAlarmService  alarmService;
 
     @Resource(name = "logRecordService")
@@ -79,6 +79,7 @@ public abstract class AbstractRuleMonitor implements Monitor, PassiveMonitor {
         AlarmMessage data = new AlarmMessage();
         data.setMessage(message);
         data.setReceiveKey(rule.getReceiverKey());
+        data.setPipelineId(rule.getPipelineId());
 
         data = alarmController.control(rule, message, data);
         postProcessAlarmData(data);

@@ -31,4 +31,11 @@
 		<property name="mailSender" ref="mailSender" />
 		<property name="username" value="${otter.manager.monitor.email.username}" />
 	</bean>
+	
+	<bean id="dingTalkAlarmService"  class="com.alibaba.otter.manager.biz.common.alarm.DingTalkAlarmService">
+		<property name="dingTalkUrl" value="${otter.manager.monitor.dingtalk.url}" />
+		<property name="clusterName" value="${otter.manager.monitor.clustername}" />
+		<property name="pipelineDAO" ref="pipelineDao" />
+		<property name="channelDAO" ref="channelDao" />
+	</bean>
 </beans>
