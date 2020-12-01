@@ -16,13 +16,10 @@
 
 package com.alibaba.otter.manager.biz.common.alarm;
 
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.concurrent.locks.LockSupport;
 
+import com.alibaba.otter.shared.common.model.config.channel.ChannelStatus;
 import org.apache.commons.lang.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,6 +38,7 @@ public abstract class AbstractAlarmService implements AlarmService, Initializing
 
     private BlockingQueue<AlarmMessage> queue  = new LinkedBlockingQueue<AlarmMessage>(3 * 3 * 3600);
     private ExecutorService             executor;
+    private ScheduledExecutorService scheduledExecutor;
     private int                         period = 150;                                                // milliseconds
 
     public void sendAlarm(AlarmMessage data) {
@@ -70,6 +68,7 @@ public abstract class AbstractAlarmService implements AlarmService, Initializing
 
     public void afterPropertiesSet() throws Exception {
         executor = Executors.newFixedThreadPool(1);
+        scheduledExecutor = Executors.newScheduledThreadPool(1);
         executor.submit(new Runnable() {
 
             public void run() {
@@ -79,6 +78,15 @@ public abstract class AbstractAlarmService implements AlarmService, Initializing
                 }
             }
         });
+
+        scheduledExecutor.scheduleWithFixedDelay(new Runnable() {
+            @Override
+            public void run() {
+                ChannelStatus channelStatus = arbitrateManageService.channelEvent().status(channelDo.getId());
+                channel.setStatus(null == channelStatus ? ChannelStatus.STOP : channelStatus);
+            }
+        }, 60, 5, TimeUnit.SECONDS);
+
     }
 
     @Override

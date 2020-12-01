@@ -50,4 +50,6 @@ public interface ChannelService extends GenericService<Channel> {
 
     public void startChannel(Long channelId);
 
+    Map<Long, ChannelStatus> getChannelStatus(List<Long> channelIds);
+
 }

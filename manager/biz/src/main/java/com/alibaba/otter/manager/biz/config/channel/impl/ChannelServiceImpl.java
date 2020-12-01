@@ -21,6 +21,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
+import com.google.common.util.concurrent.ListenableScheduledFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.transaction.TransactionStatus;
@@ -460,6 +461,13 @@ public class ChannelServiceImpl implements ChannelService {
 
     public void startChannel(Long channelId) {
         switchChannelStatus(channelId, ChannelStatus.START);
+    }
+
+    @Override
+    public Map<Long, ChannelStatus> getChannelStatus(List<Long> channelIds) {
+        List<Channel> channels = listByIds(channelIds.toArray(new Long[0]));
+        Map<Long, ChannelStatus>
+        return null;
     }
 
     public void notifyChannel(Long channelId) {

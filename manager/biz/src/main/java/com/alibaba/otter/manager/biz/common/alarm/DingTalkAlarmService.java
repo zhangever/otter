@@ -49,15 +49,14 @@ public class DingTalkAlarmService extends AbstractAlarmService {
         sb.append(TITLE).append("@").append(clusterName);
         if (data.getPipelineId() > 0) {
             if (pipelineInfos.containsKey(data.getPipelineId())) {
-                sb.append(", channel.pipeline:").append(pipelineInfos.get(data.getPipelineId()));
+                sb.append(", channel:").append(pipelineInfos.get(data.getPipelineId()));
             } else {
                 PipelineDO pipelineDO = pipelineDAO.findById(data.getPipelineId());
                 if (pipelineDO != null) {
                     ChannelDO channelDO = channelDAO.findById(pipelineDO.getChannelId());
                     if (channelDO != null) {
-                        String pipelineInfo = channelDO.getName() + "." + pipelineDO.getName();
-                        sb.append(", channel.pipeline:").append(pipelineInfo);
-                        pipelineInfos.put(data.getPipelineId(), pipelineInfo);
+                        sb.append(", channel:").append(channelDO.getName());
+                        pipelineInfos.put(data.getPipelineId(), channelDO.getName());
                     }
                 }
             }
