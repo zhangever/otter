@@ -1,19 +1,21 @@
 package com.alibaba.otter.manager.biz.common.alarm;
 
-import com.alibaba.otter.manager.biz.config.channel.dal.ChannelDAO;
-import com.alibaba.otter.manager.biz.config.channel.dal.dataobject.ChannelDO;
-import com.alibaba.otter.manager.biz.config.pipeline.dal.PipelineDAO;
-import com.alibaba.otter.manager.biz.config.pipeline.dal.dataobject.PipelineDO;
-import org.apache.http.HttpEntity;
+import com.alibaba.otter.manager.biz.config.channel.ChannelService;
+import com.alibaba.otter.manager.biz.config.pipeline.PipelineService;
+import com.alibaba.otter.shared.common.model.config.channel.Channel;
+import com.alibaba.otter.shared.common.model.config.channel.ChannelStatus;
+import com.alibaba.otter.shared.common.model.config.pipeline.Pipeline;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.regex.Pattern;
 
 /**
  * 发送钉钉机器人进行报警
@@ -33,36 +35,58 @@ public class DingTalkAlarmService extends AbstractAlarmService {
      */
     private String clusterName;
 
-    private PipelineDAO pipelineDAO;
+    /**
+     * 监控同步任务名字
+     */
 
-    private ChannelDAO channelDAO;
 
-    private Map<Long, String> pipelineInfos = new ConcurrentHashMap<Long, String>(128);
+    private PipelineService pipelineService;
+
+    private ChannelService channelService;
+
+    /**
+     * key = pipelineId， value=channelName
+     */
+    private Map<Long, String> channelInfos = new ConcurrentHashMap<Long, String>(128);
+
+    /**
+     * 待监控同步状态的channel名字
+     */
+    private String channelName4alarms;
+    /**
+     * key=channelId, value=Channel
+     */
+    private Map<Long, Channel> channel4alarmInfos = new HashMap<Long, Channel>(32);
+    private Set<Long> errorChannels = new HashSet<Long>(8);
 
     @Override
     public void doSend(AlarmMessage data) throws Exception {
-        CloseableHttpClient httpClient = HttpClientBuilder.create().build();
-
-        HttpPost httpPost = new HttpPost(dingTalkUrl);
-
         StringBuilder sb = new StringBuilder();
         sb.append(TITLE).append("@").append(clusterName);
         if (data.getPipelineId() > 0) {
-            if (pipelineInfos.containsKey(data.getPipelineId())) {
-                sb.append(", channel:").append(pipelineInfos.get(data.getPipelineId()));
+            if (channelInfos.containsKey(data.getPipelineId())) {
+                sb.append(", channel:").append(channelInfos.get(data.getPipelineId()));
             } else {
-                PipelineDO pipelineDO = pipelineDAO.findById(data.getPipelineId());
-                if (pipelineDO != null) {
-                    ChannelDO channelDO = channelDAO.findById(pipelineDO.getChannelId());
-                    if (channelDO != null) {
-                        sb.append(", channel:").append(channelDO.getName());
-                        pipelineInfos.put(data.getPipelineId(), channelDO.getName());
+                Pipeline pipeline = pipelineService.findById(data.getPipelineId());
+                if (pipeline != null) {
+                    Channel channel = channelService.findById(pipeline.getChannelId());
+                    if (channel != null) {
+                        sb.append(", channel:").append(channel.getName());
+                        channelInfos.put(data.getPipelineId(), channel.getName());
                     }
                 }
             }
         }
 
-        StringEntity entity = new StringEntity("{'msgtype':'text','text':{'content':'" + sb.toString() + ":" + data.getMessage() + "'}}", "UTF-8");
+        _doSend("{'msgtype':'text','text':{'content':'" + sb.toString() + ":" + data.getMessage() + "'}}", dingTalkUrl);
+    }
+
+    private void _doSend(String msg, String url) throws Exception {
+        CloseableHttpClient httpClient = HttpClientBuilder.create().build();
+
+        HttpPost httpPost = new HttpPost(dingTalkUrl);
+
+        StringEntity entity = new StringEntity(msg, "UTF-8");
         httpPost.setEntity(entity);
 
         httpPost.setHeader("Content-Type", "application/json;charset=utf8");
@@ -70,8 +94,6 @@ public class DingTalkAlarmService extends AbstractAlarmService {
         CloseableHttpResponse response = null;
         try {
             response = httpClient.execute(httpPost);
-            HttpEntity responseEntity = response.getEntity();
-
         } finally {
             if (httpClient != null) {
                 httpClient.close();
@@ -80,6 +102,64 @@ public class DingTalkAlarmService extends AbstractAlarmService {
                 response.close();
             }
         }
+    }
+
+    public Runnable getExtMonitorJob() {
+        if (channelName4alarms != null && !channelName4alarms.trim().equals("")) {
+            for (String channelName : channelName4alarms.split(",")) {
+                for (Channel channel : channelService.listAll()) {
+                    if (channel.getName().equals(channelName)) {
+                        channel4alarmInfos.put(channel.getId(), channel);
+                        break;
+                    }
+                }
+            }
+        }
+
+        return new Runnable() {
+            @Override
+            public void run() {
+                Map<Long, ChannelStatus> status = channelService.getChannelStatus(channel4alarmInfos.keySet());
+                StringBuilder recoverSb = new StringBuilder();
+                StringBuilder failedSb = new StringBuilder();
+                for (Map.Entry<Long, ChannelStatus> channelStatusEntry: status.entrySet()) {
+                    switch (channelStatusEntry.getValue()) {
+                        case START:
+                            if (errorChannels.contains(channelStatusEntry.getKey())) {
+                                errorChannels.remove(channelStatusEntry.getKey());
+                                recoverSb.append(channel4alarmInfos.get(channelStatusEntry.getKey()).getName()).append(",");
+                            }
+                            break;
+                        case STOP:
+                        case PAUSE:
+                            if (!errorChannels.contains(channelStatusEntry.getKey())) {
+                                errorChannels.add(channelStatusEntry.getKey());
+                                failedSb.append(channel4alarmInfos.get(channelStatusEntry.getKey()).getName()).append(",");
+                            }
+                            break;
+                    }
+                }
+
+                String failedChannels = "";
+                if (failedSb.length() > 0) {
+                    failedChannels = "以下channel同步已中断:" + failedSb.toString();
+                }
+                String recoverChnnels = "";
+                if (recoverSb.length() > 0) {
+                    recoverChnnels = "\n以下channel已恢复同步:" + recoverSb.toString();
+                }
+
+                String finalMsg = failedChannels + recoverChnnels;
+                if (finalMsg.length() > 0) {
+                    try {
+                        _doSend(TITLE + "@" + clusterName + finalMsg, dingTalkUrl);
+                        logger.info("同步状态告警信息已发送:" + finalMsg);
+                    } catch (Exception e) {
+                        logger.error(e.getMessage(), e);
+                    }
+                }
+            }
+        };
     }
 
     public String getDingTalkUrl() {
@@ -98,15 +178,14 @@ public class DingTalkAlarmService extends AbstractAlarmService {
         this.clusterName = clusterName;
     }
 
-    public PipelineDAO getPipelineDAO() {
-        return pipelineDAO;
+    public void setChannelName4alarms(String channelName4alarms) {
+        this.channelName4alarms = channelName4alarms;
+    }
+    public void setChannelService(ChannelService channelService) {
+        this.channelService = channelService;
     }
 
-    public void setPipelineDAO(PipelineDAO pipelineDAO) {
-        this.pipelineDAO = pipelineDAO;
-    }
-
-    public void setChannelDAO(ChannelDAO channelDAO) {
-        this.channelDAO = channelDAO;
+    public void setPipelineService(PipelineService pipelineService) {
+        this.pipelineService = pipelineService;
     }
 }

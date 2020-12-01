@@ -35,7 +35,8 @@
 	<bean id="dingTalkAlarmService"  class="com.alibaba.otter.manager.biz.common.alarm.DingTalkAlarmService">
 		<property name="dingTalkUrl" value="${otter.manager.monitor.dingtalk.url}" />
 		<property name="clusterName" value="${otter.manager.monitor.clustername}" />
-		<property name="pipelineDAO" ref="pipelineDao" />
-		<property name="channelDAO" ref="channelDao" />
+		<property name="channelName4alarms" value="${otter.manager.monitor.channelsyncjob}" />
+		<property name="pipelineService" ref="pipelineService" />
+		<property name="channelService" ref="channelService" />
 	</bean>
 </beans>

@@ -16,12 +16,8 @@
 
 package com.alibaba.otter.manager.biz.config.channel.impl;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
-import com.google.common.util.concurrent.ListenableScheduledFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.transaction.TransactionStatus;
@@ -464,10 +460,13 @@ public class ChannelServiceImpl implements ChannelService {
     }
 
     @Override
-    public Map<Long, ChannelStatus> getChannelStatus(List<Long> channelIds) {
+    public Map<Long, ChannelStatus> getChannelStatus(Collection<Long> channelIds) {
         List<Channel> channels = listByIds(channelIds.toArray(new Long[0]));
-        Map<Long, ChannelStatus>
-        return null;
+        Map<Long, ChannelStatus> channelStatusMap = new HashMap<Long, ChannelStatus>(64);
+        for (Channel channel : channels) {
+            channelStatusMap.put(channel.getId(), channel.getStatus());
+        }
+        return channelStatusMap;
     }
 
     public void notifyChannel(Long channelId) {

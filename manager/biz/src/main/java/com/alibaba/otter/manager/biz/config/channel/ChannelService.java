@@ -16,6 +16,7 @@
 
 package com.alibaba.otter.manager.biz.config.channel;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -50,6 +51,6 @@ public interface ChannelService extends GenericService<Channel> {
 
     public void startChannel(Long channelId);
 
-    Map<Long, ChannelStatus> getChannelStatus(List<Long> channelIds);
+    Map<Long, ChannelStatus> getChannelStatus(Collection<Long> channelIds);
 
 }
