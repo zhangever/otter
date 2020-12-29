@@ -152,7 +152,7 @@ public class DingTalkAlarmService extends AbstractAlarmService {
                 String finalMsg = failedChannels + recoverChnnels;
                 if (finalMsg.length() > 0) {
                     try {
-                        _doSend(TITLE + "@" + clusterName + finalMsg, dingTalkUrl);
+                        _doSend("{'msgtype':'text','text':{'content':'" + TITLE + "@" + clusterName + finalMsg + "'}}", dingTalkUrl);
                         logger.info("同步状态告警信息已发送:" + finalMsg);
                     } catch (Exception e) {
                         logger.error(e.getMessage(), e);
